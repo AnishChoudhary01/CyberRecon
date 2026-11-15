@@ -29,6 +29,17 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Normalize live-investigation gate
+        id: live_gate
+        env:
+          RUN_LIVE_INPUT: ${{ inputs.run_live_investigation || '' }}
+        run: |
+          if [ "$RUN_LIVE_INPUT" = "true" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -136,7 +147,7 @@ jobs:
           fi
 
       - name: Run optional real case-b investigation
-        if: ${{ inputs.run_live_investigation == true }}
+        if: ${{ steps.live_gate.outputs.enabled == 'true' }}
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
@@ -154,5 +165,5 @@ jobs:
           timeout 900s .venv-adk/bin/python main.py adk case-b
 
       - name: Explain skipped live investigation
-        if: ${{ inputs.run_live_investigation != true }}
+        if: ${{ steps.live_gate.outputs.enabled != 'true' }}
         run: echo 'Live case-b investigation skipped; enable it manually and provide OPENAI_API_KEY as a repository secret.'
