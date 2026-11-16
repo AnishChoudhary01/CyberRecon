@@ -32,13 +32,21 @@ jobs:
       - name: Normalize live-investigation gate
         id: live_gate
         env:
-          RUN_LIVE_INPUT: ${{ inputs.run_live_investigation || '' }}
+          RUN_LIVE_INPUT: ${{ inputs.run_live_investigation }}
         run: |
           if [ "$RUN_LIVE_INPUT" = "true" ]; then
             echo "enabled=true" >> "$GITHUB_OUTPUT"
           else
             echo "enabled=false" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Report live-investigation gate
+        env:
+          RUN_LIVE_INPUT: ${{ inputs.run_live_investigation }}
+          LIVE_GATE_ENABLED: ${{ steps.live_gate.outputs.enabled }}
+        run: |
+          echo "run_live_investigation=${RUN_LIVE_INPUT:-<unset>}"
+          echo "live_gate_enabled=${LIVE_GATE_ENABLED}"
 
       - name: Set up Python
         uses: actions/setup-python@v5
