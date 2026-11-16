@@ -29,6 +29,11 @@ INCIDENT_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
 TIMESTAMP_PATTERN = re.compile(r"^\d{8}-\d{6}$")
 API_TOKEN_ENV = "CYBERRECON_API_TOKEN"
 FRONTEND_ORIGINS_ENV = "CYBERRECON_FRONTEND_ORIGINS"
+DEFAULT_FRONTEND_ORIGINS = [
+    "https://cyber-recon-weld.vercel.app",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
 JOB_STATUSES = {"pending", "running", "completed", "failed"}
 _executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="cyberrecon-investigation")
 _jobs: dict[str, dict[str, Any]] = {}
@@ -56,7 +61,7 @@ def _frontend_origins() -> list[str]:
     raw = os.getenv(FRONTEND_ORIGINS_ENV, "").strip()
     origins = [item.strip().rstrip("/") for item in raw.split(",") if item.strip()]
     if not origins:
-        origins = ["http://localhost:5173", "http://127.0.0.1:5173"]
+        origins = DEFAULT_FRONTEND_ORIGINS.copy()
     return [origin for origin in origins if origin != "*"]
 
 

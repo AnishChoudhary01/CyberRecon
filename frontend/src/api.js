@@ -1,7 +1,17 @@
 const API_BASE = import.meta.env?.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
+const API_TOKEN = import.meta.env?.VITE_CYBERRECON_API_TOKEN?.trim() || ''
+
+function authHeaders() {
+  if (!API_TOKEN) {
+    throw new Error('VITE_CYBERRECON_API_TOKEN is not configured for this frontend deployment.')
+  }
+  return { Authorization: `Bearer ${API_TOKEN}` }
+}
 
 async function getJson(path) {
-  const response = await fetch(`${API_BASE}${path}`)
+  const response = await fetch(`${API_BASE}${path}`, {
+    headers: authHeaders(),
+  })
   if (!response.ok) {
     const body = await response.json().catch(() => ({}))
     throw new Error(body.detail || `API request failed (${response.status})`)
@@ -12,7 +22,7 @@ async function getJson(path) {
 async function postJson(path, payload) {
   const response = await fetch(`${API_BASE}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   })
   if (!response.ok) {

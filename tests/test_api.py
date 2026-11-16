@@ -142,6 +142,76 @@ def test_cors_preflight_allows_frontend_post_and_auth_headers(monkeypatch):
     assert "Content-Type" in response_headers["access-control-allow-headers"]
 
 
+def test_cors_headers_cover_authorized_unauthorized_and_options_requests(monkeypatch):
+    import asyncio
+
+    import httpx
+
+    origin = "https://cyber-recon-weld.vercel.app"
+    monkeypatch.setenv(api_module.API_TOKEN_ENV, "dashboard-test-token")
+    runs_dir = Path("tmp-cors-tests") / "authorized" / "runs" / "adk"
+    monkeypatch.setattr(api_module, "RUNS_DIR", runs_dir)
+    api_module.RUNS_DIR.mkdir(parents=True)
+    async def request(method, path, headers):
+        transport = httpx.ASGITransport(app=api_module.app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+            return await client.request(method, path, headers=headers)
+
+    authorized = asyncio.run(request(
+        "GET",
+        "/api/investigations",
+        {"Origin": origin, "Authorization": "Bearer dashboard-test-token"},
+    ))
+    assert authorized.status_code == 200
+    assert authorized.headers["access-control-allow-origin"] == origin
+
+    unauthorized = asyncio.run(request("GET", "/api/investigations", {"Origin": origin}))
+    assert unauthorized.status_code == 401
+    assert unauthorized.headers["access-control-allow-origin"] == origin
+
+    preflight = asyncio.run(request(
+        "OPTIONS",
+        "/api/investigations",
+        {
+            "Origin": origin,
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "Authorization, Content-Type",
+        },
+    ))
+    assert preflight.status_code == 200
+    assert preflight.headers["access-control-allow-origin"] == origin
+    assert "GET" in preflight.headers["access-control-allow-methods"]
+    assert "POST" in preflight.headers["access-control-allow-methods"]
+    assert "OPTIONS" in preflight.headers["access-control-allow-methods"]
+    assert "Authorization" in preflight.headers["access-control-allow-headers"]
+    assert "Content-Type" in preflight.headers["access-control-allow-headers"]
+
+
+def test_cors_rejects_unapproved_origin(monkeypatch):
+    import asyncio
+
+    import httpx
+
+    monkeypatch.setenv(api_module.API_TOKEN_ENV, "dashboard-test-token")
+    runs_dir = Path("tmp-cors-tests") / "unapproved" / "runs" / "adk"
+    monkeypatch.setattr(api_module, "RUNS_DIR", runs_dir)
+    api_module.RUNS_DIR.mkdir(parents=True)
+    async def request():
+        transport = httpx.ASGITransport(app=api_module.app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+            return await client.get(
+                "/api/investigations",
+                headers={
+                    "Origin": "https://malicious.example",
+                    "Authorization": "Bearer dashboard-test-token",
+                },
+            )
+
+    response = asyncio.run(request())
+    assert response.status_code == 200
+    assert "access-control-allow-origin" not in response.headers
+
+
 def test_authenticated_post_remains_protected_and_allowed(monkeypatch):
     monkeypatch.setenv(api_module.API_TOKEN_ENV, "dashboard-test-token")
 
